@@ -3,7 +3,7 @@ package com.oceanPark.main.gwt;
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.backends.gwt.GwtApplication;
 import com.badlogic.gdx.backends.gwt.GwtApplicationConfiguration;
-import com.oceanPark.main.Main;
+import com.oceanPark.main.core.Main;
 
 /** Launches the GWT application. */
 public class GwtLauncher extends GwtApplication {

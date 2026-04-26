@@ -15,11 +15,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.JsonWriter;
+import com.oceanPark.main.core.Main;
 import com.oceanPark.main.model.Player;
-
-import java.io.IOException;
-import java.io.StringWriter;
 
 public class LobbyScreen implements Screen {
     final Main game;

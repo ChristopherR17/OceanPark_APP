@@ -1,14 +1,23 @@
 package com.oceanPark.main.data;
 
-import com.oceanPark.main.data.States;
-
+/**
+ * Datos de un jugador recibidos del servidor en STATE
+ * Formato: { type: "STATE", players: [...] }
+ */
 public class PlayerData {
-
-    public String name;
     public String id;
+    public String name;
     public float x;
     public float y;
     public States state;
     public boolean facingRight;
-    public String textureId;
+
+    // Campos adicionales que podría enviar el servidor
+    public boolean onGround;
+    public String currentAnimation;
+
+    @Override
+    public String toString() {
+        return name + " [" + state + "] @ " + (int)x + "," + (int)y;
+    }
 }

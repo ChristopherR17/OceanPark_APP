@@ -19,7 +19,7 @@ public class Player extends Actor {
         this.posX=50;
         this.posY=50;
         this.stateTime = 0;
-        state=States.IDDLE;
+        state=States.IDLE;
         facingRight=false;
         ready=false;
         currentFrame= new Texture("flecha.png");

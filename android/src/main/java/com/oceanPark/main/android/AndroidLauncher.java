@@ -5,7 +5,7 @@ import android.os.Bundle;
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
 import com.github.czyzby.websocket.CommonWebSockets;
-import com.oceanPark.main.Main;
+import com.oceanPark.main.core.Main;
 
 /** Launches the Android application. */
 public class AndroidLauncher extends AndroidApplication {

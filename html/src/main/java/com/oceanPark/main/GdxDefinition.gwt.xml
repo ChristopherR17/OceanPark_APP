@@ -12,7 +12,7 @@
   <inherits name="com.badlogic.gdx.backends.gdx_backends_gwt" />
   <inherits name="com.github.czyzby.websocket.GdxWebSocket" />
   <inherits name="com.github.czyzby.websocket.GdxWebSocketGwt" />
-  <inherits name="com.oceanPark.main.Main" />
+  <inherits name="com.oceanPark.main.core.Main" />
 
   <!-- You must change this if you rename packages later, or rename GwtLauncher. -->
   <entry-point class="com.oceanPark.main.gwt.GwtLauncher" />
