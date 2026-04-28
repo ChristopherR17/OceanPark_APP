@@ -7,12 +7,10 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
-import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.github.czyzby.websocket.WebSocket;
 import com.github.czyzby.websocket.WebSocketAdapter;
@@ -22,150 +20,141 @@ import com.oceanPark.main.model.Door;
 import com.oceanPark.main.model.Key;
 import com.oceanPark.main.model.Map;
 import com.oceanPark.main.model.Player;
+
 import java.util.HashMap;
 
-/** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
+/** Main libGDX Game. */
 public class Main extends Game {
-    String playerId;
-    String playerName;
+    public String playerId;
+    public String playerName;
 
-    final JsonReader lector = new JsonReader();
+    public final JsonReader lector = new JsonReader();
 
-    HashMap<String, Player> jugadoresMap = new HashMap<>();
-    HashMap<String, Key> keyMap = new HashMap<>();
-    HashMap<String, Door> doorMap = new HashMap<>();
-    HashMap<String, Coin> coinMap = new HashMap<>();
-
+    public HashMap<String, Player> jugadoresMap = new HashMap<>();
+    public HashMap<String, Key> keyMap = new HashMap<>();
+    public HashMap<String, Door> doorMap = new HashMap<>();
+    public HashMap<String, Coin> coinMap = new HashMap<>();
 
     private final Array<String> queue = new Array<>();
 
-    WebSocket socket;
+    public WebSocket socket;
+    public FitViewport viewport;
+    public Skin skin;
+    public Float escala;
+    public SpriteBatch batch;
 
-    FitViewport viewport;
+    public Texture flechaTexture, flechaUp, mushPlayer, key;
 
-    Skin skin;
+    public HashMap<String, TextureRegion[][]> mapaSprites;
+    public HashMap<String, Animation<TextureRegion>> mapaAnimation;
 
-    Float escala;
-
-
-    SpriteBatch batch;
-
-    Texture flechaTexture,flechaUp, mushPlayer,key;
-
-    Texture backgroundTexture;
-
-    HashMap<String,TextureRegion[][]> mapaSprites;
-    HashMap<String, Animation<TextureRegion>> mapaAnimation;
     private JsonValue levelData;
     private Texture tilesetTexture;
-    private TextureRegion[][] tilesetRegions;
-    private JsonValue tileMapData; // Aquí cargaremos el level_000_layer_000.json
+    private JsonValue tileMapData;
 
-    // Offset y configuración del Viewport del JSON
-    private float offsetX, offsetY;
-    private int tileW, tileH;
-    float viewportYConfig;
+    public Map map;
 
-    Map map;
-
-
+    // Cambiad solo esta URL si el profe cambia el dominio.
+    private static final String WS_URL = "wss://pico3.ieti.site:443";
 
     @Override
     public void create() {
-
-        coinMap= new HashMap<>();
-
-        mapaAnimation= new HashMap<>();
+        jugadoresMap = new HashMap<>();
+        keyMap = new HashMap<>();
+        doorMap = new HashMap<>();
+        coinMap = new HashMap<>();
+        mapaAnimation = new HashMap<>();
         mapaSprites = new HashMap<>();
 
-        flechaTexture= new Texture("flecha.png");
-        flechaUp= new Texture("flecha_up.png");
-        //backgroundTexture = new Texture("background_oceanPark.png");
-        mushPlayer= new Texture("mushroom_iddle.png");
+        flechaTexture = new Texture("flecha.png");
+        flechaUp = new Texture("flecha_up.png");
+        mushPlayer = new Texture("mushroom_iddle.png");
         key = new Texture("key-rbg.png");
 
-        skin = new Skin(Gdx.files.internal("skin/uiskin.json")); // Carregar un Skin per defecte
+        skin = new Skin(Gdx.files.internal("skin/uiskin.json"));
         cargarGameData();
 
+        escala = viewport.getWorldHeight() / Gdx.graphics.getHeight();
+        batch = new SpriteBatch();
 
-        socket = WebSockets.newSocket("wss://pico3.ieti.site:443");
+        connectSocket();
+        setScreen(new MenuScreen(this));
+    }
 
-        // 2. Configurar el listener
+    private void connectSocket() {
+        socket = WebSockets.newSocket(WS_URL);
+
         socket.addListener(new WebSocketAdapter() {
             @Override
             public boolean onOpen(WebSocket webSocket) {
-                Gdx.app.log("WS", "Conectado exitosamente");
+                Gdx.app.log("WS", "Conectado a " + WS_URL);
                 return FULLY_HANDLED;
             }
 
             @Override
             public boolean onMessage(WebSocket webSocket, String packet) {
-
-                synchronized(queue) {
+                Gdx.app.log("MSG_RECIBIDO", packet);
+                synchronized (queue) {
                     queue.add(packet);
                 }
+                return FULLY_HANDLED;
+            }
 
+            @Override
+            public boolean onClose(WebSocket webSocket, int closeCode, String reason) {
+                Gdx.app.log("WS", "Cerrado: " + closeCode + " / " + reason);
+                return FULLY_HANDLED;
+            }
+
+            @Override
+            public boolean onError(WebSocket webSocket, Throwable error) {
+                Gdx.app.error("WS", "Error WebSocket", error);
                 return FULLY_HANDLED;
             }
         });
 
-        // 3. Conectar
         Thread networkThread = new Thread(() -> {
             try {
                 socket.connect();
             } catch (Exception e) {
-                e.printStackTrace();
+                Gdx.app.error("WS", "No se pudo conectar", e);
             }
         });
-
-//        // En el create() de tu Main
-//        Timer.schedule(new Timer.Task() {
-//            @Override
-//            public void run() {
-//                if (socket != null && socket.isOpen()) {
-//                    socket.send("{\"type\":\"ping\"}");
-//                }
-//            }
-//        }, 5, 5); // Cada 5 segundos
-        networkThread.setPriority(Thread.MIN_PRIORITY); // Dale prioridad baja para no asfixiar al GLThread
+        networkThread.setPriority(Thread.MIN_PRIORITY);
         networkThread.start();
-
-
-
-       // viewport = new FitViewport(320, 180);
-//        viewport = new FitViewport(800, 480);
-
-        escala = viewport.getWorldHeight() / Gdx.graphics.getHeight();
-
-        batch = new SpriteBatch();
-        this.setScreen(new MenuScreen(this));
     }
 
+    public boolean sendMessage(String json) {
+        Gdx.app.log("MSG_TEST_ENVIAR", json);
 
-    @Override
-    public void dispose() {
-        if (socket != null) {
-            socket.close();
+        if (socket == null) {
+            Gdx.app.log("WS", "No se envía: socket null");
+            return false;
         }
-        batch.dispose();
-        if (skin != null) skin.dispose();
+
+        if (!socket.isOpen()) {
+            Gdx.app.log("WS", "No se envía: socket cerrado/no abierto");
+            return false;
+        }
+
+        socket.send(json);
+        return true;
     }
 
     @Override
     public void render() {
-
-
-        synchronized(queue) {
-
+        synchronized (queue) {
             if (queue.size > 0) {
-                //Gdx.app.log("MSG_TEST",queue.get(0));
                 Screen pantallaActual = getScreen();
                 for (String msg : queue) {
-
-                    if (pantallaActual instanceof GameScreen) {
-                        ((GameScreen) pantallaActual).msg(msg);
-                    } else if (pantallaActual instanceof MenuScreen) {
-                        ((MenuScreen) pantallaActual).msg(msg);
+                    try {
+                        if (pantallaActual instanceof GameScreen) {
+                            ((GameScreen) pantallaActual).msg(msg);
+                        } else if (pantallaActual instanceof MenuScreen) {
+                            ((MenuScreen) pantallaActual).msg(msg);
+                        }
+                    } catch (Exception e) {
+                        Gdx.app.error("MSG_PARSE", "Error procesando mensaje: " + msg, e);
                     }
                 }
                 queue.clear();
@@ -174,98 +163,123 @@ public class Main extends Game {
 
         super.render();
     }
+
+    @Override
+    public void dispose() {
+        if (socket != null) socket.close();
+        if (batch != null) batch.dispose();
+        if (skin != null) skin.dispose();
+        if (flechaTexture != null) flechaTexture.dispose();
+        if (flechaUp != null) flechaUp.dispose();
+        if (mushPlayer != null) mushPlayer.dispose();
+        if (key != null) key.dispose();
+        if (tilesetTexture != null) tilesetTexture.dispose();
+    }
+
     public void cargarGameData() {
         JsonReader reader = new JsonReader();
-        // 1. Leer el manifiesto principal
         JsonValue root = reader.parse(Gdx.files.internal("game_data.json"));
-
-        // 2. Obtener el primer nivel (Ocean World)
         levelData = root.get("levels").get(0);
 
-        // 3. Configurar Viewport
-        viewport= new FitViewport(levelData.getInt("viewportWidth"),levelData.getInt("viewportHeight"));
-//        viewport = new FitViewport(500,500);
+        viewport = new FitViewport(levelData.getInt("viewportWidth"), levelData.getInt("viewportHeight"));
 
-        // 4. Cargar la capa de Tiles
         JsonValue layer = levelData.get("layers").get(0);
-        offsetX = layer.getFloat("x");
-        offsetY = layer.getFloat("y");
-        tileW = layer.getInt("tilesWidth"); // 23
-        tileH = layer.getInt("tilesHeight"); // 23
-
-        // 1. Obtén el ViewportY del nivel desde el JSON (es 473 en tu archivo)
-        viewportYConfig = levelData.getFloat("viewportY");
-
-
-        // 5. Cargar Textura del Tileset
         tilesetTexture = new Texture(Gdx.files.internal(layer.getString("tilesSheetFile")));
         tilesetTexture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        tilesetRegions = TextureRegion.split(tilesetTexture, tileW, tileH);
 
-        // 6. Cargar el mapa de bits (la cuadrícula de IDs)
-        // Este archivo contiene un array "data" con los números de cada tile
         tileMapData = reader.parse(Gdx.files.internal(layer.getString("tileMapFile")));
 
         cargarSprites(root);
 
+        JsonValue animRoot = reader.parse(Gdx.files.internal("animations/animations.json"));
+        cargarAnimaciones(animRoot);
 
-        //cargar animaciones
-        root = reader.parse(Gdx.files.internal("animations/animations.json"));
-        cargarAnimaciones(root);
+        map = new Map(levelData, tileMapData, tilesetTexture);
+    }
 
-        //cargar mapa
-        map = new Map(levelData,tileMapData,tilesetTexture);
+    public void cargarSprites(JsonValue root) {
+        JsonValue mediaAssets = root.get("mediaAssets");
+        for (JsonValue asset : mediaAssets) {
+            String archivo = asset.getString("fileName");
+            int tileW = asset.getInt("tileWidth");
+            int tileH = asset.getInt("tileHeight");
+
+            if (!Gdx.files.internal(archivo).exists()) {
+                Gdx.app.log("SPRITE_MISSING", "No existe: " + archivo);
+                continue;
+            }
+
+            try {
+                Texture tex = new Texture(Gdx.files.internal(archivo));
+                tex.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+                TextureRegion[][] regions = TextureRegion.split(tex, tileW, tileH);
+                mapaSprites.put(archivo, regions);
+                Gdx.app.log("SPRITE_OK", archivo);
+            } catch (Exception e) {
+                Gdx.app.error("SPRITE_ERROR", "Error cargando " + archivo, e);
+            }
+        }
     }
 
     public void cargarAnimaciones(JsonValue animRoot) {
-
         JsonValue animations = animRoot.get("animations");
+        if (animations == null) return;
 
         for (JsonValue animData : animations) {
             String animName = animData.getString("name");
             String mediaFile = animData.getString("mediaFile");
             int start = animData.getInt("startFrame");
             int end = animData.getInt("endFrame");
-            float fps = animData.getFloat("fps");
-            boolean loop = animData.getBoolean("loop");
+            float fps = animData.getFloat("fps", 8f);
+            boolean loop = animData.getBoolean("loop", true);
 
             TextureRegion[][] regiones = mapaSprites.get(mediaFile);
-
-            if(regiones==null){
-                Gdx.app.log("TEST_NULL","name: "+animName+"  filename: "+mediaFile);
-
+            if (regiones == null || regiones.length == 0 || regiones[0].length == 0) {
+                Gdx.app.log("ANIM_MISSING", animName + " -> " + mediaFile);
                 continue;
-            }else {
-                Gdx.app.log("TEST_EXIST","name: "+animName+"  filename: "+mediaFile);
             }
+
             Array<TextureRegion> frames = new Array<>();
-            for (int i = start; i <= end; i++) {
+            int max = regiones[0].length - 1;
+            int safeStart = Math.max(0, Math.min(start, max));
+            int safeEnd = Math.max(0, Math.min(end, max));
+
+            for (int i = safeStart; i <= safeEnd; i++) {
                 frames.add(regiones[0][i]);
             }
 
+            if (frames.size == 0) frames.add(regiones[0][0]);
+
             Animation<TextureRegion> anim = new Animation<>(1f / fps, frames);
             anim.setPlayMode(loop ? Animation.PlayMode.LOOP : Animation.PlayMode.NORMAL);
-
             mapaAnimation.put(animName, anim);
+            Gdx.app.log("ANIM_OK", animName);
         }
     }
 
-    public void cargarSprites(JsonValue root){
-        //carga sprites
-        JsonValue mediaAssets = root.get("mediaAssets"); //
-        for (JsonValue asset : mediaAssets) {
-            String nombre = asset.getString("name"); //
-            String archivo = asset.getString("fileName"); //
-            int tileW = asset.getInt("tileWidth"); //
-            int tileH = asset.getInt("tileHeight"); //
-            Gdx.app.log("TEST_SPRITE","nombre: "+archivo+ " archivo: "+archivo);
-            // Guardamos las regiones en un mapa para usarlas después por nombre
-            Texture tex = new Texture(Gdx.files.internal(archivo));
-            tex.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+    public Animation<TextureRegion> getAnimationSafe(String preferredName) {
+        Animation<TextureRegion> anim = mapaAnimation.get(preferredName);
+        if (anim != null) return anim;
 
-            TextureRegion[][] regions = TextureRegion.split(tex, tileW, tileH);
-
-            mapaSprites.put(archivo, regions);
+        // Fallbacks por nombres que tenéis ahora en game_data/animations.
+        if (preferredName.equals("Mushroom Left")) {
+            anim = mapaAnimation.get("Mushroom  Left");
+            if (anim != null) return anim;
         }
+        if (preferredName.equals("Mushroom  Left")) {
+            anim = mapaAnimation.get("Mushroom Left");
+            if (anim != null) return anim;
+        }
+        if (preferredName.equals("Mushroom Idle")) {
+            anim = mapaAnimation.get("Mushroom Green Idle");
+            if (anim != null) return anim;
+        }
+
+        // Último recurso: cualquier animación disponible para no crashear.
+        if (!mapaAnimation.isEmpty()) {
+            return mapaAnimation.values().iterator().next();
+        }
+
+        return null;
     }
 }
